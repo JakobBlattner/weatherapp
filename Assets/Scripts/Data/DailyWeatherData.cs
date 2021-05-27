@@ -2,6 +2,11 @@
 {
     public class DailyWeatherData : WeatherData
     {
+        public DailyWeatherData()
+        {
+            dataType = DataType.Daily;
+        }
+
         public Temperature temp { get; set; }
         public Temperature feels_like { get; set; }
         public int moonrise { get; set; }

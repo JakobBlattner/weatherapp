@@ -5,6 +5,11 @@ namespace Assets.Scripts.Data
 {
     public class CurrentWeatherData : WeatherData
     {
+        public CurrentWeatherData()
+        {
+            dataType = DataType.Current;
+        }
+
         public float temp { get; set; }
         public float feels_like { get; set; }
         public int sunrise { get; set; }

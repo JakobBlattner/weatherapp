@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine.UI;
 using System;
 using Assets.Scripts.Data;
+using System.Collections.Generic;
 
 public class WeatherDisplay : MonoBehaviour
 {
@@ -11,9 +12,16 @@ public class WeatherDisplay : MonoBehaviour
     private const int minutesBetweenForecastWeatherRequests = 60;
     private float currentWeatherUpdateTime;
     private float forecastWeatherUpdateTime;
+    private List<Button> dailyForecastButtons = new List<Button>();
 
+    //weatherresponses
+    private WeatherResponse currentWeatherResponse;
+    private WeatherResponse hourlyWeatherResponse;
+    private WeatherResponse dailyWeatherResponse;
+
+    [Header("Alert")]
     public AlertPopup alertPopup;
-    public TextMeshProUGUI alertText;
+    public GameObject alertPanel;
 
     [Header("Current WeatherIcon Images")]
     public Image thunderImage;
@@ -29,8 +37,6 @@ public class WeatherDisplay : MonoBehaviour
     public TextMeshProUGUI precipitation;
     public TextMeshProUGUI humidity;
     public TextMeshProUGUI wind;
-    public TextMeshProUGUI sunrise;
-    public TextMeshProUGUI sunset;
     public TextMeshProUGUI time;
     public TextMeshProUGUI location;
     public TextMeshProUGUI dayOfTheWeek;
@@ -38,12 +44,19 @@ public class WeatherDisplay : MonoBehaviour
     [Header("Forecast Prefabs")]
     public Transform dayForecastParent;
     public GameObject dailyForecastPrefab;
-    public Transform hourForecastParent;
-    public GameObject hourlyForecastPrefab;
+
+    [Header("Hour Slider")]
+    public Slider hourSlider;
+    private TextMeshProUGUI[] sliderTimeText;
 
     void Awake()
     {
         service = GetComponent<WeatherService>();
+        sliderTimeText = hourSlider.transform.parent.GetComponentsInChildren<TextMeshProUGUI>();
+    }
+
+    private void Start()
+    {
     }
 
     private void OnApplicationFocus(bool focus)
@@ -52,7 +65,7 @@ public class WeatherDisplay : MonoBehaviour
         {
             GetAndDisplayCurrentWeather();
             GetAndDisplayForecastWeather();
-            GetAndDisplayCurrentDayHourlyWeather();
+            //GetAndDisplayCurrentDayHourlyWeather();
         }
     }
 
@@ -68,7 +81,6 @@ public class WeatherDisplay : MonoBehaviour
         if (forecastWeatherUpdateTime > (minutesBetweenForecastWeatherRequests * 60))
         {
             GetAndDisplayForecastWeather();
-            GetAndDisplayCurrentDayHourlyWeather();
         }
     }
 
@@ -76,9 +88,9 @@ public class WeatherDisplay : MonoBehaviour
     {
         Debug.Log("Getting current weather data");
         currentWeatherUpdateTime = 0;
-        WeatherResponse wal = service.GetCurrentWeather();
-        DisplayCurrentWeather(wal);
-        Debug.Log("Got current weather data, weatherId = " + wal.current.weather[0].id);
+        currentWeatherResponse = service.GetCurrentWeather();
+        DisplayWeatherData(currentWeatherResponse.current);
+        Debug.Log("Got current weather data, weatherId = " + currentWeatherResponse.current.weather[0].id);
     }
 
     private void GetAndDisplayForecastWeather()
@@ -87,78 +99,26 @@ public class WeatherDisplay : MonoBehaviour
         forecastWeatherUpdateTime = 0;
 
         //daily forecast weather
-        WeatherResponse wr = service.GetDailyForecastWeather();
-        if (wr != null)
-            DisplayDailyForecast(wr);
+        dailyWeatherResponse = service.GetDailyForecastWeather();
+        //of next 48 hours
+        hourlyWeatherResponse = service.GetWeatherOfNext48Hours();
+
+        if (dailyWeatherResponse != null)
+            DisplayDailyForecast();
         else
             Debug.LogError("No daily forecast weather data received");
-    }
-
-    private void GetAndDisplayCurrentDayHourlyWeather()
-    {
-        Debug.Log("Getting 24h weather data of current day");
-
-        //hourly current/forecast data
-        WeatherResponse wr = service.GetHourlyWeatherOfCurrentDay();
-        if (wr != null)
-            DisplayHourlyWeather(wr);
-        else
-            Debug.LogError("No hourly forecast weather data received");
-    }
-
-    /// <summary>
-    /// Displays current weather from the passed weatherdata.
-    /// </summary>
-    /// <param name="weatherdata"></param>
-    private void DisplayCurrentWeather(WeatherResponse weatherdata)
-    {
-        if (weatherdata != null)
-        {
-            currentTemp.text = Mathf.Round(weatherdata.current.temp) + "°C";
-            feelsLikeTemp.text = "feels like " + Mathf.Round(weatherdata.current.feels_like) + "°C";
-            description.text = weatherdata.current.weather[0].description;
-            precipitation.text = "";
-            dayOfTheWeek.text = DateTime.Now.DayOfWeek.ToString();
-            humidity.text = "Humidity: " + weatherdata.current.humidity + "%";
-            wind.text = "Wind: " + Mathf.Round(weatherdata.current.wind_speed * 3.6f) + "km/h";
-
-            //alert
-            //Debug.Log("End of alert = " + new DateTime(1970, 1, 1).AddSeconds(weatherdata.alerts[0].end + weatherdata.timezone_offset).ToString("HH:mm dd.MM.yyyy"));
-            if (weatherdata.alerts != null && weatherdata.alerts.Count > 0 && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(weatherdata.alerts[0].end + weatherdata.timezone_offset)) < 0)
-            {
-                alertText.text = weatherdata.alerts[0].event_;
-                alertText.transform.parent.gameObject.SetActive(true);
-                alertPopup.SetText(weatherdata.alerts[0]);
-            }
-            else
-            {
-                alertText.transform.parent.gameObject.SetActive(false);
-            }
-
-            //sunrise/ sunset
-            sunrise.text = new DateTime(1970, 1, 1).AddSeconds(weatherdata.current.sunrise + weatherdata.timezone_offset).ToString("HH:mm");
-            sunset.text = new DateTime(1970, 1, 1).AddSeconds(weatherdata.current.sunset + weatherdata.timezone_offset).ToString("HH:mm");
-
-            //time and location
-            time.text = DateTime.Now.ToString("HH:mm");
-            //location.text = weatherdata.name;
-
-            UpdateCurrentWeatherIcon(weatherdata);
-        }
-        else
-            Debug.LogError("No current weather data received");
     }
 
     /// <summary>
     /// Updates the current weather icon by passing weatherdata to service layer which finds fitting sprite images.
     /// </summary>
-    /// <param name="weatherdata"></param>
-    private void UpdateCurrentWeatherIcon(WeatherResponse weatherdata)
+    /// <param name="weatherData"></param>
+    private void UpdateBigWeatherIcon(WeatherData weatherData)
     {
         try
         {
             //rend.material.mainTexture = service.GetWeatherIcon(imageId);
-            Sprite[] weatherSprites = service.GetWeatherIcons(weatherdata.current, weatherdata.timezone_offset, false);
+            Sprite[] weatherSprites = service.GetWeatherIcons(weatherData);
 
             SetSprite(thunderImage, weatherSprites[0]);
             SetSprite(conditionImage, weatherSprites[1]);
@@ -191,94 +151,129 @@ public class WeatherDisplay : MonoBehaviour
     }
 
     /// <summary>
-    /// Displays hourly forecast 
+    /// Displays weather information at the top part of the screen
     /// </summary>
-    /// <param name="fwd"></param>
-    private void DisplayHourlyWeather(WeatherResponse weatherData)
+    /// <param name="weatherData">Datat to display</param>
+    private void DisplayWeatherData(WeatherData weatherData)
     {
-        if (hourlyForecastPrefab != null)
+        if (weatherData != null)
         {
-            //Destroy all current children first
-            for (int i = 0; i < hourForecastParent.childCount; i++)
+            //gets correct data depending on datatype
+            WeatherResponse weatherResponse = (weatherData.dataType == DataType.Daily) ? dailyWeatherResponse : ((weatherData.dataType == DataType.Current) ? currentWeatherResponse : hourlyWeatherResponse);
+            float temp = (weatherData.dataType == DataType.Daily) ? ((DailyWeatherData)weatherData).temp.day : ((weatherData.dataType == DataType.Current) ? ((CurrentWeatherData)weatherData).temp : ((HourlyWeatherData)weatherData).temp);
+            float feelsLike = (weatherData.dataType == DataType.Daily) ? ((DailyWeatherData)weatherData).feels_like.day : ((weatherData.dataType == DataType.Current) ? ((CurrentWeatherData)weatherData).feels_like : ((HourlyWeatherData)weatherData).feels_like);
+
+            currentTemp.text = Mathf.Round(temp) + "°C";
+            feelsLikeTemp.text = "feels like " + Mathf.Round(feelsLike) + "°C";
+
+            description.text = weatherData.weather[0].description;
+            precipitation.text = "";
+            dayOfTheWeek.text = new DateTime(1970, 1, 1).AddSeconds(weatherData.dt + weatherResponse.timezone_offset).DayOfWeek.ToString();
+            humidity.text = "Humidity: " + weatherData.humidity + "%";
+            wind.text = "Wind: " + Mathf.Round(weatherData.wind_speed * 3.6f) + "km/h";
+
+            //alert
+            //Debug.Log("End of alert = " + new DateTime(1970, 1, 1).AddSeconds(weatherdata.alerts[0].end + weatherdata.timezone_offset).ToString("HH:mm dd.MM.yyyy"));
+            if (weatherResponse.alerts != null && weatherResponse.alerts.Count > 0 && DateTime.Compare(new DateTime(1970, 1, 1).AddSeconds(weatherData.dt + weatherResponse.timezone_offset), new DateTime(1970, 1, 1).AddSeconds(weatherResponse.alerts[0].end + weatherResponse.timezone_offset)) < 0)
             {
-                Destroy(hourForecastParent.GetChild(i).gameObject);
+                //alertText.text = weatherdata.alerts[0].event_;
+                alertPanel.SetActive(true);
+                alertPopup.SetText(weatherResponse.alerts[0]);
+            }
+            else
+            {
+                alertPanel.SetActive(false);
             }
 
-            //instantiates 24 hour forecast prefabs
-            for (int i = 0; i < 26; i += 3)
-            {
-                //Debug.Log(new DateTime(1970, 1, 1).AddSeconds(weatherData.hourly[i].dt + weatherData.timezone_offset).ToString("HH:mm dd.MM.yyyy"));
-
-                GameObject go = Instantiate(hourlyForecastPrefab, hourForecastParent);
-                Slider[] sliders = go.GetComponentsInChildren<Slider>();
-                TextMeshProUGUI[] texts = go.GetComponentsInChildren<TextMeshProUGUI>();
-
-                int temp = (int)Mathf.Round((weatherData.hourly[i].temp + weatherData.hourly[i + 1].temp + weatherData.hourly[i + 2].temp) / 3);
-                texts[0].text = temp + "";
-                texts[1].text = new DateTime(1970, 1, 1).AddSeconds(weatherData.hourly[i].dt + weatherData.timezone_offset).ToString("HH:mm");
-
-                if (temp > 0)
-                {
-                    sliders[0].value = temp;
-                    sliders[1].value = 0;
-                    texts[0].transform.localPosition = new Vector3(texts[0].transform.localPosition.x, texts[0].transform.localPosition.y + temp * 3 + 10, 0);
-                }
-                else
-                {
-                    sliders[0].value = 0;
-                    sliders[1].value = temp * -1;
-                    texts[0].transform.localPosition = new Vector3(texts[0].transform.localPosition.x, texts[0].transform.localPosition.y - 20 + temp * 3 + 10, 0);
-                }
-
-                //visualizes precipitation
-                if (weatherData.hourly[i].rain != null || weatherData.hourly[i + 1].rain != null || weatherData.hourly[i + 2].rain != null)
-                {
-                    float rainInLiterPerSquaremeter = 0;
-                    if (weatherData.hourly[i].rain != null)
-                        rainInLiterPerSquaremeter += weatherData.hourly[i].rain.oneH;
-                    if (weatherData.hourly[i + 1].rain != null)
-                        rainInLiterPerSquaremeter += weatherData.hourly[i + 1].rain.oneH;
-                    if (weatherData.hourly[i + 2].rain != null)
-                        rainInLiterPerSquaremeter += weatherData.hourly[i + 2].rain.oneH;
-
-                    Transform precipitationPointTransform = go.GetComponentsInChildren<Image>()[4].gameObject.transform;
-                    precipitationPointTransform.localPosition = new Vector2(precipitationPointTransform.localPosition.x, rainInLiterPerSquaremeter);
-
-                    Debug.Log(rainInLiterPerSquaremeter + "l/m²");
-                }
-            }
+            //time
+            time.text = new DateTime(1970, 1, 1).AddSeconds(weatherData.dt + weatherResponse.timezone_offset).ToString("HH:mm");
+            UpdateBigWeatherIcon(weatherData);
         }
         else
+            Debug.LogError("No hourly weather data received");
+
+        /*
+        //instantiates 24 hour forecast prefabs
+        for (int i = 0; i < 26; i += 3)
         {
-            Debug.LogError("No hourlyForecast GameObject set, can't visualize hourly forecast.");
+            //Debug.Log(new DateTime(1970, 1, 1).AddSeconds(weatherData.hourly[i].dt + weatherData.timezone_offset).ToString("HH:mm dd.MM.yyyy"));
+
+            Slider[] sliders = GetComponentsInChildren<Slider>();
+            TextMeshProUGUI[] texts = GetComponentsInChildren<TextMeshProUGUI>();
+
+            int temp = (int)Mathf.Round((weatherData.hourly[i].temp + weatherData.hourly[i + 1].temp + weatherData.hourly[i + 2].temp) / 3);
+            texts[0].text = temp + "";
+            texts[1].text = new DateTime(1970, 1, 1).AddSeconds(weatherData.hourly[i].dt + weatherData.timezone_offset).ToString("HH:mm");
+
+            if (temp > 0)
+            {
+                sliders[0].value = temp;
+                sliders[1].value = 0;
+                texts[0].transform.localPosition = new Vector3(texts[0].transform.localPosition.x, texts[0].transform.localPosition.y + temp * 3 + 10, 0);
+            }
+            else
+            {
+                sliders[0].value = 0;
+                sliders[1].value = temp * -1;
+                texts[0].transform.localPosition = new Vector3(texts[0].transform.localPosition.x, texts[0].transform.localPosition.y - 20 + temp * 3 + 10, 0);
+            }
+
+            //visualizes precipitation
+            if (weatherData.hourly[i].rain != null || weatherData.hourly[i + 1].rain != null || weatherData.hourly[i + 2].rain != null)
+            {
+                float rainInLiterPerSquaremeter = 0;
+                if (weatherData.hourly[i].rain != null)
+                    rainInLiterPerSquaremeter += weatherData.hourly[i].rain.oneH;
+                if (weatherData.hourly[i + 1].rain != null)
+                    rainInLiterPerSquaremeter += weatherData.hourly[i + 1].rain.oneH;
+                if (weatherData.hourly[i + 2].rain != null)
+                    rainInLiterPerSquaremeter += weatherData.hourly[i + 2].rain.oneH;
+
+                Transform precipitationPointTransform = GetComponentsInChildren<Image>()[4].gameObject.transform;
+                precipitationPointTransform.localPosition = new Vector2(precipitationPointTransform.localPosition.x, rainInLiterPerSquaremeter);
+            }
         }
+    }
+    else
+    {
+        Debug.LogError("No hourlyForecast GameObject set, can't visualize hourly forecast.");
+    }*/
     }
 
     /// <summary>
     /// Displays daily forecast data.
     /// </summary>
-    /// <param name="fwd"></param>
-    private void DisplayDailyForecast(WeatherResponse fwd)
+    private void DisplayDailyForecast()
     {
         if (dailyForecastPrefab != null)
         {
-            //Destroy all current children first
-            for (int i = 0; i < dayForecastParent.childCount; i++)
+            //checks if dayForecastParent has any children, if not --> instantiates them
+            if (dayForecastParent.childCount == 0)
             {
-                Destroy(dayForecastParent.GetChild(i).gameObject);
+                for (int i = 0; i < 5; i++)
+                {
+                    GameObject go = Instantiate(dailyForecastPrefab, dayForecastParent);
+                    int nr = i;
+                    Button b = go.GetComponent<Button>();
+                    dailyForecastButtons.Add(b);
+                    b.onClick.AddListener(delegate { UpdateDisplayedWeatherByButton(nr); });
+                }
+                //deactivates current day button
+                dailyForecastButtons[0].interactable = false;
+                UpdateSliderTimeText(true, DateTime.Now.Hour);
             }
 
-            //instantiates new prefabs
+            //changes prefab values
             for (int i = 0; i < 5; i++)
             {
-                Sprite[] weatherSprites = service.GetWeatherIcons(fwd.daily[i], fwd.timezone_offset, true);
-                GameObject go = Instantiate(dailyForecastPrefab, dayForecastParent);
-                TextMeshProUGUI[] texts = go.GetComponentsInChildren<TextMeshProUGUI>();
-                Image[] images = go.GetComponentsInChildren<Image>();
+                Sprite[] weatherSprites = service.GetWeatherIcons(dailyWeatherResponse.daily[i]);
+                GameObject forecastOfDay = dayForecastParent.GetChild(i).gameObject;
+                TextMeshProUGUI[] texts = forecastOfDay.GetComponentsInChildren<TextMeshProUGUI>(true);
+                Image[] images = forecastOfDay.GetComponentsInChildren<Image>(true);
 
                 texts[0].text = i != 0 ? DateTime.Now.AddDays(i).DayOfWeek.ToString() : "Today";
-                texts[1].text = Mathf.Round(fwd.daily[i].temp.min) + "°/" + Mathf.Round(fwd.daily[i].temp.max) + "°";
-                texts[2].text = Mathf.Round(fwd.daily[i].pop * 100) + "%";
+                texts[1].text = Mathf.Round(dailyWeatherResponse.daily[i].temp.min) + "°/" + Mathf.Round(dailyWeatherResponse.daily[i].temp.max) + "°";
+                texts[2].text = Mathf.Round(dailyWeatherResponse.daily[i].pop * 100) + "%";
                 //texts[2].text = Mathf.Round(fwd.daily[i].rain) + "l/m²";
 
                 SetSprite(images[5], weatherSprites[0]);
@@ -294,13 +289,52 @@ public class WeatherDisplay : MonoBehaviour
         }
     }
 
-
     /// <summary>
-    /// Switches between daily and hourly forecast
+    /// Updates the displayed weather forecast information on the upper part of the GUI when a forecast prefab has been pressed
     /// </summary>
-    public void ShowDailyOrHourlyForecast()
+    /// <param name="daysInTheFuture">Which day in the future the displayed weather information should be from.</param>
+    private void UpdateDisplayedWeatherByButton(int daysInTheFuture)
     {
-        dayForecastParent.gameObject.SetActive(!dayForecastParent.gameObject.activeInHierarchy);
-        hourForecastParent.transform.parent.gameObject.SetActive(!hourForecastParent.transform.parent.gameObject.activeInHierarchy);
+
+        if (daysInTheFuture == 0)
+        {
+            DisplayWeatherData(currentWeatherResponse.current);
+            UpdateSliderTimeText(true, DateTime.Now.Hour);
+        }
+        else if (daysInTheFuture == 1 || daysInTheFuture == 2)
+        {
+            DisplayWeatherData(dailyWeatherResponse.daily[daysInTheFuture]);
+            UpdateSliderTimeText(true, 0);
+        }
+        else
+        {
+            DisplayWeatherData(dailyWeatherResponse.daily[daysInTheFuture]);
+            UpdateSliderTimeText(false, -1);
+        }
+
+        //activates all other buttons and deactivates itself
+        for (int i = 0; i < dailyForecastButtons.Count; i++)
+        {
+            dailyForecastButtons[i].interactable = (i == daysInTheFuture) ? false : true;
+        }
+    }
+
+    public void UpdateDisplayedWeatherBySlider()
+    {
+
+    }
+
+    private void UpdateSliderTimeText(bool includeSlider, int hourToStartWith)
+    {
+        hourSlider.transform.parent.gameObject.SetActive(includeSlider);
+        Debug.Log(hourToStartWith + "");
+
+        if (includeSlider)
+        {
+            for (int i = 0; i < sliderTimeText.Length; i++)
+            {
+                sliderTimeText[i].text = (hourToStartWith + 3*i) % 24 + ":00";
+            }
+        }
     }
 }

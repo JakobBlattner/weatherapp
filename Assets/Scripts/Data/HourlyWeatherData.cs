@@ -5,6 +5,11 @@ namespace Assets.Scripts.Data
 {
     public class HourlyWeatherData : WeatherData
     {
+        public HourlyWeatherData()
+        {
+            dataType = DataType.Hourly;
+        }
+
         public float temp { get; set; }
         public float feels_like { get; set; }
         public float pop { get; set; }

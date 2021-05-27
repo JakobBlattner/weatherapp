@@ -5,6 +5,7 @@ namespace Assets.Scripts.Data
 {
     public class WeatherData
     {
+        public DataType dataType{get; set;}
         public int dt { get; set; }
         public int pressure { get; set; }
         public int humidity { get; set; }
@@ -15,6 +16,13 @@ namespace Assets.Scripts.Data
         public float wind_gust { get; set; }
         public List<Weather> weather { get; set; }
         public float uvi { get; set; }
+    }
+
+    public enum DataType
+    {
+        Current = 0,
+        Hourly = 1,
+        Daily = 2
     }
 
     public class Temperature
@@ -44,6 +52,4 @@ namespace Assets.Scripts.Data
         public string main { get; set; }
         public int id { get; set; }
     }
-
-
 }
