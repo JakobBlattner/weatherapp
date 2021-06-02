@@ -43,7 +43,7 @@ public class WeatherService : MonoBehaviour
         }
         catch (JsonException ex)
         {
-            Debug.LogError(ex.Message + " " + ex.StackTrace);
+            Debug.LogError("Getting current weather data failed: " + ex.Message + "\n" + ex.StackTrace);
             return null;
         }
     }
@@ -58,12 +58,16 @@ public class WeatherService : MonoBehaviour
         {
             string stringdata = data.GetDailyForecastWeather();
             stringdata = ReplaceUnsuitableSubstrings(stringdata);
+            stringdata = stringdata.Replace("feels_like\":", "d_feels_like\":");
+            stringdata = stringdata.Replace("temp\":", "d_temp\":");
+            stringdata = stringdata.Replace("rain\":", "d_rain\":");
+            stringdata = stringdata.Replace("snow\":", "d_snow\":");
             WeatherResponse weatherdata = JsonConvert.DeserializeObject<WeatherResponse>(stringdata);
             return weatherdata;
         }
         catch (JsonException ex)
         {
-            Debug.LogError(ex.Message + " " + ex.StackTrace);
+            Debug.LogError("Getting daily forecast weather data failed: " + ex.Message + "\n" + ex.StackTrace);
             return null;
         }
     }
@@ -72,40 +76,26 @@ public class WeatherService : MonoBehaviour
     /// Gets data of whole current day and returns it 
     /// </summary>
     /// <returns>WeatherResponse with HourlyWeatherData for weather of current day</returns>
-    public WeatherResponse GetHourlyWeatherOfCurrentDay()
+    public WeatherResponse GetWeatherOfNext48Hours()
     {
         try
         {
-            //get historic data
+            string stringdata = data.GetHourlyForecastWeather();
+            stringdata = ReplaceUnsuitableSubstrings(stringdata);
+            WeatherResponse weatherData = JsonConvert.DeserializeObject<WeatherResponse>(stringdata);
+
+            //seconds call to previous day because bug in rest backend: timezoneoffset is not being applied to start of day (always starts at 2 o'clock)
             TimeSpan span = DateTime.Now - new DateTime(1970, 1, 1);
-            string historicaData = data.GetHistoricaWeatherData(((int)span.TotalSeconds - timezoneOffset - 1).ToString());
-            WeatherResponse weatherData = JsonConvert.DeserializeObject<WeatherResponse>(historicaData);
-            weatherData.hourly. Remove(weatherData.hourly[weatherData.hourly.Count - 1]); //removes current hour
-
-            if (weatherData != null)
-            {
-                //seconds call to previous day because bug in rest backend: timezoneoffset is not being applied to start of day (always starts at 2 o'clock)
-                historicaData = data.GetHistoricaWeatherData(((int)span.TotalSeconds - timezoneOffset - 3600 * 24).ToString());
-                WeatherResponse historicWeatherResponse = JsonConvert.DeserializeObject<WeatherResponse>(historicaData);
-                weatherData.hourly.Insert(0, historicWeatherResponse.hourly[historicWeatherResponse.hourly.Count - 1]);
-                weatherData.hourly.Insert(0, historicWeatherResponse.hourly[historicWeatherResponse.hourly.Count - 2]);
-
-                //get forecastweather and append to weatherData list
-                string stringdata = data.GetHourlyForecastWeather();
-                stringdata = ReplaceUnsuitableSubstrings(stringdata);
-                weatherData.hourly.AddRange(JsonConvert.DeserializeObject<WeatherResponse>(stringdata).hourly);
-
-                /*foreach (HourlyWeatherData hourly in weatherData.hourly)
-                {
-                    Debug.Log(new DateTime(1970, 1, 1).AddSeconds(hourly.dt + weatherData.timezone_offset).ToString("HH:mm dd.MM.yyyy"));
-                }*/
-            }
+            string historicaData = data.GetHistoricaWeatherData(((int)span.TotalSeconds - timezoneOffset - 3600 * 24).ToString());
+            WeatherResponse historicWeatherResponse = JsonConvert.DeserializeObject<WeatherResponse>(historicaData);
+            weatherData.hourly.Add(historicWeatherResponse.hourly[historicWeatherResponse.hourly.Count - 1]);
+            weatherData.hourly.Add(historicWeatherResponse.hourly[historicWeatherResponse.hourly.Count - 2]);
 
             return weatherData;
         }
         catch (JsonException ex)
         {
-            Debug.LogError(ex.Message + " " + ex.StackTrace);
+            Debug.LogError("Getting weather data for next 48 hours failed: " + ex.Message + "\n" + ex.StackTrace);
             return null;
         }
     }
@@ -129,7 +119,7 @@ public class WeatherService : MonoBehaviour
     /// </summary>
     /// <param name="weatherData">Weather data from the backend.</param>
     /// <returns>Array with five elements representing the current weather.</returns>
-    public Sprite[] GetWeatherIcons(WeatherData weatherData, int timeOffset, bool dailyWeatherData)
+    public Sprite[] GetWeatherIcons(WeatherData weatherData)
     {
         Sprite[] weatherSprites = new Sprite[5];
         int weatherId = weatherData.weather[0].id;
@@ -186,7 +176,7 @@ public class WeatherService : MonoBehaviour
         }
 
         //freezeImage.sprite = weatherSprites[2];
-        if ((dailyWeatherData && ((DailyWeatherData)weatherData).temp.min < 1) || !dailyWeatherData && ((CurrentWeatherData)weatherData).temp < 1)
+        if ((weatherData.dataType == DataType.Daily && ((DailyWeatherData)weatherData).d_temp.min < 1) || (weatherData.dataType == DataType.Current && ((CurrentWeatherData)weatherData).temp < 1) || (weatherData.dataType == DataType.Hourly && ((HourlyWeatherData)weatherData).temp < 1))
         {
             weatherSprites[2] = freezeSprite;
         }
@@ -207,13 +197,13 @@ public class WeatherService : MonoBehaviour
         }
 
         //sunMoonImage.sprite = weatherSprites[4];
-        if (weatherId == 800 || weatherId == 801)
+        if ((int)(weatherId / 100) == 8)
         {
             //DateTime sunrise = new DateTime(1970, 1, 1).AddSeconds(weatherData.sunrise + timeOffset);
             //DateTime sunset = new DateTime(1970, 1, 1).AddSeconds(weatherData.sunset + timeOffset);
 
             //if is between sunrise and sunset, set sun, otherwise moon
-            if (!dailyWeatherData && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(((CurrentWeatherData)weatherData).sunrise + timeOffset)) < 0 && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(((CurrentWeatherData)weatherData).sunset + timeOffset)) > 0)
+            if ((weatherData.dataType == DataType.Current || weatherData.dataType == DataType.Daily) && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(weatherData.sunrise + timezoneOffset)) < 0 && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(weatherData.sunset + timezoneOffset)) > 0)
             {
                 //sets big moon if weather is clear
                 if (weatherId == 800)
@@ -230,7 +220,7 @@ public class WeatherService : MonoBehaviour
             {
                 //sets big sun if weather is clear
                 if (weatherId == 800)
-                {
+                    {
                     weatherSprites[4] = sunMoonSprites[0];
                 }
                 //sets small sun otherwise
@@ -239,7 +229,6 @@ public class WeatherService : MonoBehaviour
                     weatherSprites[4] = sunMoonSprites[1];
                 }
             }
-
         }
 
         return weatherSprites;
