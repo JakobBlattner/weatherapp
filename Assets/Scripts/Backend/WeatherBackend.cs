@@ -24,40 +24,13 @@ public class WeatherBackend
         historictUrl = "https://api.openweathermap.org/data/2.5/onecall/timemachine?lat=" +
                 +lat + "&lon=" + lon + "&dt={timeString}&units=metric&appid=" + API_KEY;
     }
-    /*
-    public byte[] GetWeatherIcon(string imageId)
-    {
-        // Create a web client.
-        using (WebClient client = new WebClient())
-        {
-            // Get the response string from the URL.
-            try
-            {
-                client.DownloadFile("http://openweathermap.org/img/wn/" + imageId + ".png", "D:\\Projects\\WeatherForecast\\Assets\\Icons\\currentWeatherIcon.png");
-                return client.DownloadData("http://openweathermap.org/img/wn/" + imageId + ".png");
-            }
-            catch (WebException ex)
-            {
-                Debug.LogError("Webexception: " + ex.Message + " " + ex.StackTrace);
-                return new byte[0];
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("Unknown error\n" + ex.Message + " " + ex.StackTrace);
-                return new byte[0];
-            }
-            finally
-            {
-                client.Dispose();
-            }
-        }
-    }
-    */
+
     public string GetDailyForecastWeather()
     {
         // Create a web client.
         using (WebClient client = new WebClient())
         {
+
             // Get the response string from the URL.
             try
             {
@@ -72,10 +45,6 @@ public class WeatherBackend
             {
                 Debug.LogError("Unknown error\n" + ex.Message + " " + ex.StackTrace);
                 return "";
-            }
-            finally
-            {
-                client.Dispose();
             }
         }
     }
@@ -97,10 +66,6 @@ public class WeatherBackend
             {
                 Debug.LogError("Unknown error\n" + ex.Message + " " + ex.StackTrace);
                 return "";
-            }
-            finally
-            {
-                client.Dispose();
             }
         }
     }
@@ -125,10 +90,6 @@ public class WeatherBackend
                 Debug.LogError("Unknown error\n" + ex.Message + " " + ex.StackTrace);
                 return "";
             }
-            finally
-            {
-                client.Dispose();
-            }
         }
     }
 
@@ -151,10 +112,6 @@ public class WeatherBackend
             {
                 Debug.LogError("Unknown error\n" + ex.Message + " " + ex.StackTrace);
                 return "";
-            }
-            finally
-            {
-                client.Dispose();
             }
         }
     }

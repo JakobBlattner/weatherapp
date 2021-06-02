@@ -15,13 +15,4 @@ namespace Assets.Scripts.Data
         public CurrentWeatherData current{ get; set; }
         public List<HourlyWeatherData> hourly{ get; set; }
     }
-
-    public class Alert
-    {
-        public int start { get; set; }
-        public int end { get; set; }
-        public string event_ { get; set; }
-        public string description { get; set; }
-        public string sender_name { get; set; }
-    }
 }

@@ -16,40 +16,24 @@ namespace Assets.Scripts.Data
         public float wind_gust { get; set; }
         public List<Weather> weather { get; set; }
         public float uvi { get; set; }
-    }
 
-    public enum DataType
-    {
-        Current = 0,
-        Hourly = 1,
-        Daily = 2
-    }
+        //daily && current
+        public int sunrise { get; set; }
+        public int sunset { get; set; }
 
-    public class Temperature
-    {
-        public float day { get; set; }
-        public float min { get; set; }
-        public float max { get; set; }
-        public float night { get; set; }
-        public float eve { get; set; }
-        public float morn { get; set; }
-    }
+        //daily && hourly
+        public float pop { get; set; }
 
-    public class Rain
-    {
-        public float oneH { get; set; }
-    }
+        //current && hourly
+        public float temp { get; set; }
+        public float feels_like { get; set; }
+        public Rain rain { get; set; }
+        public Snow snow { get; set; }
 
-    public class Snow
-    {
-        public float oneH { get; set; }
-    }
-
-    public class Weather
-    {
-        public string description { get; set; }
-        public string icon { get; set; }
-        public string main { get; set; }
-        public int id { get; set; }
+        //daily
+        public Temperature d_temp { get; set; }
+        public Temperature d_feels_like { get; set; }
+        public float d_rain { get; set; }
+        public float d_snow { get; set; }
     }
 }
