@@ -199,9 +199,6 @@ public class WeatherService : MonoBehaviour
         //sunMoonImage.sprite = weatherSprites[4];
         if ((int)(weatherId / 100) == 8)
         {
-            //DateTime sunrise = new DateTime(1970, 1, 1).AddSeconds(weatherData.sunrise + timeOffset);
-            //DateTime sunset = new DateTime(1970, 1, 1).AddSeconds(weatherData.sunset + timeOffset);
-
             //if is between sunrise and sunset, set sun, otherwise moon
             if ((weatherData.dataType == DataType.Current || weatherData.dataType == DataType.Daily) && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(weatherData.sunrise + timezoneOffset)) < 0 && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(weatherData.sunset + timezoneOffset)) > 0)
             {
