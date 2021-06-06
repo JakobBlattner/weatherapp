@@ -68,16 +68,16 @@ public class WeatherDisplay : MonoBehaviour
     private void Update()
     {
         //updates 5 minutes after last interaction or after 1 minute without interaction (also resets UI)
-        if ( (DateTime.Compare(DateTime.Now, lastInteraction) > 0 && (DateTime.Now - lastInteraction).TotalMinutes >= 5) || (DateTime.Compare(DateTime.Now, lastInteraction) < 0 && DateTime.Now.Second == 0))
+        if ((DateTime.Compare(DateTime.Now, lastInteraction) > 0 && (DateTime.Now - lastInteraction).TotalMinutes >= 5) || (DateTime.Compare(DateTime.Now, lastInteraction) < 0 && DateTime.Now.Second == 0))
         {
             GetAndDisplayCurrentWeather();
             lastInteraction = DateTime.MaxValue;
         }
         //gets data every full hour or 5 minutes after last interaction (also resets UI)
-        if ( (DateTime.Compare(DateTime.Now, lastInteraction) > 0 && (DateTime.Now - lastInteraction).Minutes >= 5) || (DateTime.Compare(DateTime.Now, lastInteraction) < 0 && DateTime.Now.Minute == 0))
+        if ((DateTime.Compare(DateTime.Now, lastInteraction) > 0 && (DateTime.Now - lastInteraction).Minutes >= 5) || (DateTime.Compare(DateTime.Now, lastInteraction) < 0 && DateTime.Now.Minute == 0))
         {
             GetAndDisplayForecastWeather();
-            lastInteraction = DateTime.MaxValue ;
+            lastInteraction = DateTime.MaxValue;
         }
 
         //retries if getting data from backend failed - only works at beginning
@@ -208,13 +208,13 @@ public class WeatherDisplay : MonoBehaviour
             UpdateBigWeatherIcon(weatherData);
 
             //Updates slider text depending on data
-            if(weatherData.dataType == DataType.Current)
+            if (weatherData.dataType == DataType.Current)
             {
                 UpdateSliderTimeText(true, DateTime.Now.Hour);
             }
-            else if(weatherData.dataType == DataType.Daily)
+            else if (weatherData.dataType == DataType.Daily)
             {
-                if((DateTime.Now - new DateTime(1970, 1, 1).AddSeconds(weatherData.dt + weatherResponse.timezone_offset)).TotalDays > 2)
+                if ((new DateTime(1970, 1, 1).AddSeconds(weatherData.dt + weatherResponse.timezone_offset) - DateTime.Now).TotalDays > 2)
                 {
                     UpdateSliderTimeText(false);
                 }
@@ -293,7 +293,7 @@ public class WeatherDisplay : MonoBehaviour
         {
             DisplayWeatherData(currentWeatherResponse.current);
         }
-        else 
+        else
         {
             DisplayWeatherData(dailyWeatherResponse.daily[daysInTheFuture]);
         }

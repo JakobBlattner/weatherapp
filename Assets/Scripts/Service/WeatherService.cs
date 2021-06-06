@@ -16,6 +16,7 @@ public class WeatherService : MonoBehaviour
     public Sprite[] sunMoonSprites = new Sprite[4];
 
     private int timezoneOffset = 0;
+    private WeatherResponse lastDailyWeatherResponse;
 
     private WeatherBackend data;
     void Awake()
@@ -63,6 +64,7 @@ public class WeatherService : MonoBehaviour
             stringdata = stringdata.Replace("rain\":", "d_rain\":");
             stringdata = stringdata.Replace("snow\":", "d_snow\":");
             WeatherResponse weatherdata = JsonConvert.DeserializeObject<WeatherResponse>(stringdata);
+            lastDailyWeatherResponse = weatherdata;
             return weatherdata;
         }
         catch (JsonException ex)
@@ -199,8 +201,28 @@ public class WeatherService : MonoBehaviour
         //sunMoonImage.sprite = weatherSprites[4];
         if ((int)(weatherId / 100) == 8)
         {
-            //if is between sunrise and sunset, set sun, otherwise moon
-            if ((weatherData.dataType == DataType.Current || weatherData.dataType == DataType.Daily) && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(weatherData.sunrise + timezoneOffset)) < 0 && DateTime.Compare(DateTime.Now, new DateTime(1970, 1, 1).AddSeconds(weatherData.sunset + timezoneOffset)) > 0)
+            bool showMoon = false;
+
+            //checks if moon image should be shown
+            if (weatherData.dataType == DataType.Current )
+            {
+                showMoon = ShowMoon(weatherData, DateTime.Now);
+            }
+            else if(weatherData.dataType == DataType.Hourly)
+            {
+                DateTime hourlyData = new DateTime(1970, 1, 1).AddSeconds(weatherData.dt + timezoneOffset);
+                foreach (WeatherData dailyData in lastDailyWeatherResponse.daily)
+                {
+                    //if same day
+                    if (hourlyData.Day == new DateTime(1970, 1, 1).AddSeconds(dailyData.dt + timezoneOffset).Day)
+                    {
+                        showMoon = ShowMoon(dailyData, hourlyData);
+                    }
+                }
+            }
+
+            //sets moon or sun image according to weather id
+            if (showMoon)
             {
                 //sets big moon if weather is clear
                 if (weatherId == 800)
@@ -217,7 +239,7 @@ public class WeatherService : MonoBehaviour
             {
                 //sets big sun if weather is clear
                 if (weatherId == 800)
-                    {
+                {
                     weatherSprites[4] = sunMoonSprites[0];
                 }
                 //sets small sun otherwise
@@ -229,5 +251,19 @@ public class WeatherService : MonoBehaviour
         }
 
         return weatherSprites;
+    }
+
+    private bool ShowMoon(WeatherData dailyData, DateTime timeToCheck)
+    {
+        DateTime sunset = new DateTime(1970, 1, 1).AddSeconds(dailyData.sunset + timezoneOffset);
+        DateTime sunrise = new DateTime(1970, 1, 1).AddSeconds(dailyData.sunrise + timezoneOffset);
+
+        //check sunrise/sunset
+        if (DateTime.Compare(timeToCheck, sunrise) < 0 || DateTime.Compare(timeToCheck, sunset) > 0)
+        {
+            return true;
+        }
+
+        return false;
     }
 }
