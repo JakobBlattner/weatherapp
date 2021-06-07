@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using System;
 using Assets.Scripts.Data;
 using System.Collections.Generic;
+using System.Collections;
 
 public class WeatherDisplay : MonoBehaviour
 {
@@ -12,6 +13,8 @@ public class WeatherDisplay : MonoBehaviour
     private int currentlyActiveDayButton = 0;
     private int hourStepsOnSlider;
     private DateTime lastInteraction = DateTime.MaxValue;
+    private bool startedDelayedRequest = false;
+    private int timeBetweenRetries = 1;
 
     //weatherresponses
     private WeatherResponse currentWeatherResponse;
@@ -47,6 +50,7 @@ public class WeatherDisplay : MonoBehaviour
     [Header("Hour Slider")]
     public Slider hourSlider;
     private TextMeshProUGUI[] sliderTimeText;
+    private bool executeSliderMethod = true;
 
     void Awake()
     {
@@ -57,7 +61,8 @@ public class WeatherDisplay : MonoBehaviour
 
     private void OnApplicationFocus(bool focus)
     {
-        if (focus)
+        //updates 5 minutes after last interaction or after 1 minute without interaction when focus is on UI (also resets UI)
+        if (focus && (DateTime.Compare(DateTime.Now, lastInteraction) > 0 && (DateTime.Now - lastInteraction).TotalMinutes >= 5) || (DateTime.Compare(DateTime.Now, lastInteraction) < 0 && DateTime.Now.Second == 0))
         {
             GetAndDisplayCurrentWeather();
             GetAndDisplayForecastWeather();
@@ -81,16 +86,25 @@ public class WeatherDisplay : MonoBehaviour
         }
 
         //retries if getting data from backend failed - only works at beginning
-        if (currentWeatherResponse == null)
+        if ((currentWeatherResponse == null || hourlyWeatherResponse == null || dailyWeatherResponse == null) && !startedDelayedRequest)
         {
-            Debug.Log("Trying to get current weather data again.");
-            GetAndDisplayCurrentWeather();
+            Debug.Log("Trying to get weather data after unsuccessfull request.");
+            StartCoroutine(RequestResponsesDelayed(timeBetweenRetries));
         }
-        if (hourlyWeatherResponse == null || dailyWeatherResponse == null)
-        {
-            Debug.Log("Trying to get forecast weather data again.");
-            GetAndDisplayForecastWeather();
-        }
+    }
+
+    /// <summary>
+    /// Method which waits t seconds after unsuccessfull request
+    /// </summary>
+    /// <param name="t">Time in seconds to wait after trying to get data</param>
+    /// <returns></returns>
+    public IEnumerator RequestResponsesDelayed(float t)
+    {
+        startedDelayedRequest = true;
+        GetAndDisplayCurrentWeather();
+        GetAndDisplayForecastWeather();
+        yield return new WaitForSeconds(t);
+        startedDelayedRequest = false;
     }
 
     private void GetAndDisplayCurrentWeather()
@@ -286,7 +300,6 @@ public class WeatherDisplay : MonoBehaviour
     private void UpdateDisplayedWeatherByButton(int daysInTheFuture)
     {
         currentlyActiveDayButton = daysInTheFuture;
-
         lastInteraction = DateTime.Now;
 
         if (daysInTheFuture == 0)
@@ -313,8 +326,16 @@ public class WeatherDisplay : MonoBehaviour
             dailyForecastButtons[i].interactable = (i == highlightButton) ? false : true;
         }
 
-        //resets slider
-        hourSlider.value = 0;
+        //sets out slider method because the value of the slider needs to be changed to represent time of loaded data
+        executeSliderMethod = false;
+        if (highlightButton == 0)
+        {
+            hourSlider.value = 0;
+        }
+        else
+        {
+            hourSlider.value = 13;
+        }
     }
 
     /// <summary>
@@ -322,19 +343,35 @@ public class WeatherDisplay : MonoBehaviour
     /// </summary>
     public void UpdateDisplayedWeatherBySlider()
     {
-        lastInteraction = DateTime.Now;
-
-        //Shows hourly weather data, except slider is on today and is 
-        if (currentlyActiveDayButton == 0 && hourSlider.value == 0)
+        if (executeSliderMethod)
         {
-            DisplayWeatherData(currentWeatherResponse.current);
+            lastInteraction = DateTime.Now;
+
+            //Shows hourly weather data, except slider is on today and is 
+            if (currentlyActiveDayButton == 0 && hourSlider.value == 0)
+            {
+                DisplayWeatherData(currentWeatherResponse.current);
+            }
+            else
+            {
+                if (currentlyActiveDayButton != 0)
+                {
+                    int index = currentlyActiveDayButton * 24 - DateTime.Now.Hour + Mathf.RoundToInt(hourSlider.value * hourStepsOnSlider);
+                    //Count -2 because of backend bug
+                    if (index < hourlyWeatherResponse.hourly.Count - 2)
+                    {
+                        DisplayWeatherData(hourlyWeatherResponse.hourly[index]);
+                    }
+                }
+                else
+                {
+                    DisplayWeatherData(hourlyWeatherResponse.hourly[Mathf.RoundToInt(hourSlider.value * hourStepsOnSlider)]);
+                }
+            }
         }
         else
         {
-            if (currentlyActiveDayButton != 0)
-                DisplayWeatherData(hourlyWeatherResponse.hourly[currentlyActiveDayButton * 24 - DateTime.Now.Hour + Mathf.RoundToInt(hourSlider.value * hourStepsOnSlider)]);
-            else
-                DisplayWeatherData(hourlyWeatherResponse.hourly[Mathf.RoundToInt(hourSlider.value * hourStepsOnSlider)]);
+            executeSliderMethod = true;
         }
     }
 
