@@ -12,13 +12,15 @@ public class WeatherDisplay : MonoBehaviour
     private List<Button> dailyForecastButtons = new List<Button>();
     private int currentlyActiveDayButton = 0;
     private int hourStepsOnSlider;
-    private DateTime lastInteraction = DateTime.MaxValue;
     private bool startedDelayedRequest = false;
     private int timeBetweenRetries = 1;
-    private int secondsBetweenCurrentWeatherUpdate = 300;
+    private int secondsBetweenCurrentWeatherUpdate = 60;
     private int secondsBetweenForecastWeatherUpdate = 3600;
-    private float timeSinceLastCurrentWeatherUpdate = 0;
-    private float timeSinceLastForecastWeatherUpdate = 0;
+    private int updateTresholdSinceLastInteraction = 10;
+    private DateTime lastInteraction = DateTime.MinValue;
+    private DateTime lastCurrentWeatherUpdateAt = DateTime.MinValue;
+    private DateTime lastForecastWeatherUpdateAt = DateTime.MinValue;
+    private bool onFocusIsExecuting = false;
 
     //weatherresponses
     private WeatherResponse currentWeatherResponse;
@@ -65,35 +67,22 @@ public class WeatherDisplay : MonoBehaviour
 
     private void OnApplicationFocus(bool focus)
     {
-        if (focus && !startedDelayedRequest)
+        if (!onFocusIsExecuting)
         {
-            StartCoroutine(RequestResponsesDelayed(timeBetweenRetries));
+            onFocusIsExecuting = true;
+
+            GetAndDisplayCurrentWeather();
+            GetAndDisplayForecastWeather();
+
+            onFocusIsExecuting = false;
         }
     }
 
-    //gets current weather every 5 minutes and forecast weather every 60 minutes
+    //gets current weather every minute and forecast weather every 60 minutes
     private void Update()
     {
-        timeSinceLastCurrentWeatherUpdate += Time.deltaTime;
-        timeSinceLastForecastWeatherUpdate += Time.deltaTime;
-
-        //updates 5 minutes after last interaction or after 1 minute without interaction (also resets UI)
-        if (timeSinceLastCurrentWeatherUpdate > secondsBetweenCurrentWeatherUpdate)
-        {
-            if ((DateTime.Now - lastInteraction).TotalMinutes >= 5 || (DateTime.Compare(DateTime.Now, lastInteraction) < 0))
-            {
-                GetAndDisplayCurrentWeather();
-            }
-        }
-
-        //gets data after every 60mins and 5 minutes after last interaction (also resets UI)
-        if (timeSinceLastForecastWeatherUpdate > secondsBetweenForecastWeatherUpdate)
-        {
-            if ((DateTime.Now - lastInteraction).Minutes >= 5 || (DateTime.Compare(DateTime.Now, lastInteraction) < 0))
-            {
-                GetAndDisplayForecastWeather();
-            }
-        }
+        GetAndDisplayCurrentWeather();
+        GetAndDisplayForecastWeather();
 
         //retries if getting data from backend failed - only works at beginning
         if ((currentWeatherResponse == null || hourlyWeatherResponse == null || dailyWeatherResponse == null) && !startedDelayedRequest)
@@ -119,37 +108,42 @@ public class WeatherDisplay : MonoBehaviour
 
     private void GetAndDisplayCurrentWeather()
     {
-        Debug.Log("Getting current weather data");
+        //updates current weather every minute
+        if ((DateTime.Now - lastCurrentWeatherUpdateAt).TotalSeconds > secondsBetweenCurrentWeatherUpdate && (DateTime.Now - lastInteraction).TotalSeconds >= updateTresholdSinceLastInteraction)
+        {
+            Debug.Log("Getting current weather data");
 
-        timeSinceLastCurrentWeatherUpdate = 0;
-        lastInteraction = DateTime.MaxValue;
+            lastCurrentWeatherUpdateAt = DateTime.Now;
 
-        //resets slider and button
-        ResetSliderAndButtons(0);
+            //resets slider and button
+            ResetSliderAndButtons(0);
 
-        currentWeatherResponse = service.GetCurrentWeather();
-        DisplayWeatherData(currentWeatherResponse.current);
-        Debug.Log("Got current weather data, weatherId = " + currentWeatherResponse.current.weather[0].id);
+            currentWeatherResponse = service.GetCurrentWeather();
+            DisplayWeatherData(currentWeatherResponse.current);
+            Debug.Log("Got current weather data, weatherId = " + currentWeatherResponse.current.weather[0].id);
+        }
     }
 
     private void GetAndDisplayForecastWeather()
     {
-        Debug.Log("Getting forecast weather data");
+        if ((DateTime.Now - lastForecastWeatherUpdateAt).TotalSeconds > secondsBetweenForecastWeatherUpdate && (DateTime.Now - lastInteraction).TotalSeconds >= updateTresholdSinceLastInteraction)
+        {
+            Debug.Log("Getting forecast weather data");
 
-        timeSinceLastForecastWeatherUpdate = 0;
-        lastInteraction = DateTime.MaxValue;
+            lastForecastWeatherUpdateAt = DateTime.Now;
 
-        //resets slider and button
-        ResetSliderAndButtons(0);
-        //daily forecast weather
-        dailyWeatherResponse = service.GetDailyForecastWeather();
-        //of next 48 hours
-        hourlyWeatherResponse = service.GetWeatherOfNext48Hours();
+            //resets slider and button
+            ResetSliderAndButtons(0);
+            //daily forecast weather
+            dailyWeatherResponse = service.GetDailyForecastWeather();
+            //of next 48 hours
+            hourlyWeatherResponse = service.GetWeatherOfNext48Hours();
 
-        if (dailyWeatherResponse != null)
-            DisplayDailyForecast();
-        else
-            Debug.LogError("No daily forecast weather data received");
+            if (dailyWeatherResponse != null)
+                DisplayDailyForecast();
+            else
+                Debug.LogError("No daily forecast weather data received");
+        }
     }
 
     /// <summary>
