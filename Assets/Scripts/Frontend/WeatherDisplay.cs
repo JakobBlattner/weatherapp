@@ -20,7 +20,7 @@ public class WeatherDisplay : MonoBehaviour
     private DateTime lastInteraction = DateTime.MinValue;
     private DateTime lastCurrentWeatherUpdateAt = DateTime.MinValue;
     private DateTime lastForecastWeatherUpdateAt = DateTime.MinValue;
-    private bool onFocusIsExecuting = false;
+    private bool gettingData = false;
 
     //weatherresponses
     private WeatherResponse currentWeatherResponse;
@@ -67,14 +67,12 @@ public class WeatherDisplay : MonoBehaviour
 
     private void OnApplicationFocus(bool focus)
     {
-        if (!onFocusIsExecuting)
+        if (!focus)
         {
-            onFocusIsExecuting = true;
-
-            GetAndDisplayCurrentWeather();
-            GetAndDisplayForecastWeather();
-
-            onFocusIsExecuting = false;
+            Debug.Log("Focus true");
+            lastInteraction = DateTime.MinValue;
+            lastCurrentWeatherUpdateAt = DateTime.MinValue;
+            lastForecastWeatherUpdateAt = DateTime.MinValue;
         }
     }
 
@@ -108,10 +106,14 @@ public class WeatherDisplay : MonoBehaviour
 
     private void GetAndDisplayCurrentWeather()
     {
+        if (gettingData)
+            return;
+
         //updates current weather every minute
         if ((DateTime.Now - lastCurrentWeatherUpdateAt).TotalSeconds > secondsBetweenCurrentWeatherUpdate && (DateTime.Now - lastInteraction).TotalSeconds >= updateTresholdSinceLastInteraction)
         {
             Debug.Log("Getting current weather data");
+            gettingData = true;
 
             lastCurrentWeatherUpdateAt = DateTime.Now;
 
@@ -121,14 +123,20 @@ public class WeatherDisplay : MonoBehaviour
             currentWeatherResponse = service.GetCurrentWeather();
             DisplayWeatherData(currentWeatherResponse.current);
             Debug.Log("Got current weather data, weatherId = " + currentWeatherResponse.current.weather[0].id);
+
+            gettingData = false;
         }
     }
 
     private void GetAndDisplayForecastWeather()
     {
+        if (gettingData)
+            return;
+
         if ((DateTime.Now - lastForecastWeatherUpdateAt).TotalSeconds > secondsBetweenForecastWeatherUpdate && (DateTime.Now - lastInteraction).TotalSeconds >= updateTresholdSinceLastInteraction)
         {
             Debug.Log("Getting forecast weather data");
+            gettingData = true;
 
             lastForecastWeatherUpdateAt = DateTime.Now;
 
@@ -143,6 +151,8 @@ public class WeatherDisplay : MonoBehaviour
                 DisplayDailyForecast();
             else
                 Debug.LogError("No daily forecast weather data received");
+
+            gettingData = false;
         }
     }
 
